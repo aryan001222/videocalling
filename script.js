@@ -7,6 +7,7 @@ let localStream;
 let peerConnection;
 let roomId;
 
+
 startCallButton.addEventListener('click', () => {
     startCallButton.disabled = true;
     endCallButton.disabled = false;
@@ -43,7 +44,14 @@ startCallButton.addEventListener('click', () => {
             endCallButton.disabled = true;
         });
 });
+// Parse the room ID from the URL query parameters
+const urlParams = new URLSearchParams(window.location.search);
+const sharedRoomId = urlParams.get('room');
 
+if (sharedRoomId) {
+    // Join the room specified in the shared link
+    socket.emit('join', sharedRoomId);
+}
 endCallButton.addEventListener('click', () => {
     startCallButton.disabled = false;
     endCallButton.disabled = true;
