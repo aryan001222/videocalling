@@ -1,0 +1,6 @@
+{
+    "rewrites": [
+      { "source": "/(.*)", "destination": "https://127.0.0.1/$1", "has": [{ "type": "host", "value": "your_domain.com" }] }
+    ]
+  }
+  
