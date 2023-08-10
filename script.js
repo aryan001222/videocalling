@@ -20,50 +20,20 @@ if (roomId) {
 
     joinMeeting(roomId);
 }
+
 startCallButton.addEventListener('click', () => {
     startCallButton.disabled = true;
     endCallButton.disabled = false;
 
-    // Generate a unique room ID (you can use a library like uuid)
-    roomId = generateUniqueId(); // Replace with your logic to generate a unique ID
-
-    // Prompt the user with the room ID
+    // Generate a new room ID for each new meeting
+    roomId = generateUniqueId();
     const roomLink = `${window.location.origin}/?room=${roomId}`;
     alert(`Share this link with others: ${roomLink}`);
 
     socket.emit('join', roomId);
-    navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-        .then(stream => {
-            localStream = stream;
-            localVideo.srcObject = stream;
-
-            // Create RTCPeerConnection and set local stream
-            peerConnection = new RTCPeerConnection();
-            localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
-
-            // ... (Rest of your peer connection code)
-
-            // Handle ICE candidate events
-            peerConnection.onicecandidate = event => {
-                if (event.candidate) {
-                    socket.emit('ice-candidate', { candidate: event.candidate, roomId });
-                }
-            };
-        })
-        .catch(error => {
-            console.error('Error accessing webcam:', error);
-            startCallButton.disabled = false;
-            endCallButton.disabled = true;
-        });
+    joinMeeting(roomId);
 });
-// Parse the room ID from the URL query parameters
-const urlParams = new URLSearchParams(window.location.search);
-const sharedRoomId = urlParams.get('room');
 
-if (sharedRoomId) {
-    // Join the room specified in the shared link
-    socket.emit('join', sharedRoomId);
-}
 endCallButton.addEventListener('click', () => {
     startCallButton.disabled = false;
     endCallButton.disabled = true;
@@ -79,9 +49,31 @@ endCallButton.addEventListener('click', () => {
     }
 });
 
-// Set up socket connection
-const socket = io();
+// Set up media stream, peer connection, and signaling
+function joinMeeting(roomId) {
+    navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+        .then(stream => {
+            localStream = stream;
+            localVideo.srcObject = stream;
 
+            // Create RTCPeerConnection and set local stream
+            peerConnection = new RTCPeerConnection();
+            localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+
+            peerConnection.onicecandidate = event => {
+                if (event.candidate) {
+                    socket.emit('ice-candidate', { candidate: event.candidate, roomId });
+                }
+            };
+        })
+        .catch(error => {
+            console.error('Error accessing webcam:', error);
+            startCallButton.disabled = false;
+            endCallButton.disabled = true;
+        });
+}
+
+// Socket event listeners
 socket.on('offer', offer => {
     // ... (Handle offer and create answer)
 });
