@@ -7,7 +7,19 @@ let localStream;
 let peerConnection;
 let roomId;
 
+// Set up socket connection
+const socket = io();
 
+// Parse the URL parameters to extract the room ID
+const queryParams = new URLSearchParams(window.location.search);
+roomId = queryParams.get('room');
+
+if (roomId) {
+    startCallButton.disabled = true;
+    endCallButton.disabled = false;
+
+    joinMeeting(roomId);
+}
 startCallButton.addEventListener('click', () => {
     startCallButton.disabled = true;
     endCallButton.disabled = false;
