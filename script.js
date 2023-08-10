@@ -18,20 +18,27 @@ if (roomId) {
     startCallButton.disabled = true;
     endCallButton.disabled = false;
 
-    joinMeeting(roomId);
+    socket.emit('join', roomId);
+
+    // Automatically start the call for the user who receives the link
+    startCall();
 }
 
 startCallButton.addEventListener('click', () => {
     startCallButton.disabled = true;
     endCallButton.disabled = false;
 
-    // Generate a new room ID for each new meeting
-    roomId = generateUniqueId();
-    const roomLink = `${window.location.origin}/?room=${roomId}`;
-    alert(`Share this link with others: ${roomLink}`);
+    if (!roomId) {
+        roomId = generateUniqueId();
+        localStorage.setItem('roomId', roomId);
 
-    socket.emit('join', roomId);
-    joinMeeting(roomId);
+        const roomLink = `${window.location.origin}/?room=${roomId}`;
+        alert(`Share this link with others: ${roomLink}`);
+
+        socket.emit('join', roomId);
+    }
+
+    startCall();
 });
 
 endCallButton.addEventListener('click', () => {
@@ -49,8 +56,39 @@ endCallButton.addEventListener('click', () => {
     }
 });
 
-// Set up media stream, peer connection, and signaling
-function joinMeeting(roomId) {
+socket.on('offer', async offer => {
+    try {
+        // Create an answer and set local description
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+        const answer = await peerConnection.createAnswer();
+        await peerConnection.setLocalDescription(answer);
+
+        // Send the answer to the other participant
+        socket.emit('answer', { answer, roomId });
+    } catch (error) {
+        console.error('Error creating answer:', error);
+    }
+});
+
+socket.on('answer', async answer => {
+    try {
+        // Set the remote description with the received answer
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+    } catch (error) {
+        console.error('Error setting remote description:', error);
+    }
+});
+
+socket.on('ice-candidate', async candidate => {
+    try {
+        // Add the received ICE candidate to the peer connection
+        await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+    } catch (error) {
+        console.error('Error adding ICE candidate:', error);
+    }
+});
+
+function startCall() {
     navigator.mediaDevices.getUserMedia({ video: true, audio: true })
         .then(stream => {
             localStream = stream;
@@ -60,11 +98,30 @@ function joinMeeting(roomId) {
             peerConnection = new RTCPeerConnection();
             localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
 
+            // Handle ICE candidate events
             peerConnection.onicecandidate = event => {
                 if (event.candidate) {
                     socket.emit('ice-candidate', { candidate: event.candidate, roomId });
                 }
             };
+
+            // Handle remote track events
+            peerConnection.ontrack = event => {
+                if (event.streams && event.streams[0]) {
+                    remoteVideo.srcObject = event.streams[0];
+                }
+            };
+
+            // Create an offer and set local description
+            peerConnection.createOffer()
+                .then(offer => peerConnection.setLocalDescription(offer))
+                .then(() => {
+                    // Send the offer to the other participant
+                    socket.emit('offer', { offer, roomId });
+                })
+                .catch(error => {
+                    console.error('Error creating offer:', error);
+                });
         })
         .catch(error => {
             console.error('Error accessing webcam:', error);
@@ -72,19 +129,6 @@ function joinMeeting(roomId) {
             endCallButton.disabled = true;
         });
 }
-
-// Socket event listeners
-socket.on('offer', offer => {
-    // ... (Handle offer and create answer)
-});
-
-socket.on('answer', answer => {
-    // ... (Handle answer)
-});
-
-socket.on('ice-candidate', candidate => {
-    // ... (Handle ICE candidate)
-});
 
 // Replace this function with your own logic to generate unique IDs
 function generateUniqueId() {
