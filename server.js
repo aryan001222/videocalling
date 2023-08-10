@@ -1,21 +1,42 @@
 const express = require('express');
-const https = require('https');
-const fs = require('fs');
+const http = require('http');
+const socketIo = require('socket.io');
 
 const app = express();
+const server = http.createServer(app);
+const io = socketIo(server);
 
-// Serve static files from the "public" directory
-app.use(express.static('public'));
+app.use(express.static(__dirname + '/public'));
 
-const options = {
-    key: fs.readFileSync('key.pem'),       // Path to your private key file (key.pem)
-    cert: fs.readFileSync('cert.pem')      // Path to your SSL certificate file (cert.pem)
-};
+io.on('connection', (socket) => {
+    console.log('User connected:', socket.id);
 
-const PORT = process.env.PORT || 443;  // Use port 443 for HTTPS
+    socket.on('join', (roomId) => {
+        socket.join(roomId);
+        console.log(`User ${socket.id} joined room ${roomId}`);
+    });
 
-const server = https.createServer(options, app);
+    socket.on('offer', (data) => {
+        const { offer, roomId } = data;
+        socket.to(roomId).emit('offer', offer);
+    });
 
+    socket.on('answer', (data) => {
+        const { answer, roomId } = data;
+        socket.to(roomId).emit('answer', answer);
+    });
+
+    socket.on('ice-candidate', (data) => {
+        const { candidate, roomId } = data;
+        socket.to(roomId).emit('ice-candidate', candidate);
+    });
+
+    socket.on('disconnect', () => {
+        console.log('User disconnected:', socket.id);
+    });
+});
+
+const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-    console.log(`Server is listening on port ${PORT}`);
+    console.log(`Server is running on port ${PORT}`);
 });
