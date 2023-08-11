@@ -1,10 +1,10 @@
+const { createServer } = require('http');
+const { Server } = require('socket.io');
 const express = require('express');
-const http = require('http');
-const socketIo = require('socket.io');
 
 const app = express();
-const server = http.createServer(app);
-const io = socketIo(server);
+const httpServer = createServer(app);
+const io = new Server(httpServer);
 
 app.use(express.static(__dirname + '/public'));
 
@@ -37,6 +37,6 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
+httpServer.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
