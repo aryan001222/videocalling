@@ -5,7 +5,7 @@ const express = require('express');
 const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer);
-
+app.use(cors());
 app.use(express.static(__dirname + '/public'));
 
 io.on('connection', (socket) => {
